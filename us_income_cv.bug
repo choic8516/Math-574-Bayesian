@@ -1,0 +1,32 @@
+model {
+
+  for(i in 1:N){
+
+    us_income[i] ~ dnorm ( mu.y[i], tau.y )
+    mu.y[i] <- a + b.age * age[i] + b.travel_time * travel_time[i] + b.num_child * num_child[i] + b.num_hours_week * num_hours_week[i] 
+
+  }
+
+  a ~ dnorm(0, 0.001)
+
+	b.age ~ dnorm(0, tau.age)
+	b.travel_time ~ dnorm(0, tau.travel_time)
+	b.num_child ~ dnorm(0, tau.num_child)
+	b.num_hours_week ~ dnorm(0, tau.num_hours_week)
+
+  tau.y ~ dgamma(0.01, 0.01)  
+
+  tau.age ~ dgamma(0.001, 0.001)
+  tau.travel_time ~ dgamma(0.001, 0.001)
+  tau.num_child ~ dgamma(0.001, 0.001)
+  tau.num_hours_week ~ dgamma(0.001, 0.001)
+
+  for(i in 1:1000){
+
+    us_income.test[i] ~ dnorm ( mu.y.test[i], tau.y )
+    mu.y.test[i] <- a + b.age * age.test[i] + b.travel_time * travel_time.test[i] + b.num_child * num_child.test[i] + b.num_hours_week * num_hours_week.test[i]
+
+  }
+    
+
+}

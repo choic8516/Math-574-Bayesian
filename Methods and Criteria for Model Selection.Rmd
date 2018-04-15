@@ -1,0 +1,203 @@
+---
+title: "Bayesian Model Selection/Comparison"
+output: html_notebook
+author: Chul Ho Choi
+---
+
+# Bayesian model comparison
+
+## Model 1 (with "num_hours_week" variable)
+```{r}
+library(tidyverse)
+us_income_data <- read.csv("us_income_dataset.csv")
+colnames(us_income_data)[colnames(us_income_data)=="WEEKS_WORKED_NUMERIC"] <- "NUM_HOURS_WEEK"
+us_income_data <- us_income_data %>%
+        select(INCOME, AGE, NUM_CHILD, TRAVEL_TIME, NUM_HOURS_WEEK)
+
+library(arm)
+library(rjags)
+library(runjags)
+
+set.seed(654321)
+test.ind <- sample(1:dim(us_income_data)[1], 1000, F)
+train.ind <- which( !(1:dim(us_income_data)[1] %in% test.ind) == T)
+us_income_data.train <- us_income_data[train.ind, ]
+us_income_data.test <- us_income_data[test.ind, ]
+
+us_income_data <- us_income_data.train
+N <- dim(us_income_data)[1]
+
+set.seed(123456)
+
+jags.dat<- list("N"=N, "us_income"= us_income_data$INCOME, "age" = us_income_data$AGE, "travel_time" = us_income_data$TRAVEL_TIME, "num_child" = us_income_data$NUM_CHILD, "num_hours_week" = us_income_data$NUM_HOURS_WEEK, "age.test" = us_income_data.test$AGE, "travel_time.test" = us_income_data.test$TRAVEL_TIME, "num_child.test" = us_income_data.test$NUM_CHILD, "num_hours_week.test" = us_income_data.test$NUM_HOURS_WEEK)
+
+jags.inits <- function() {list (b.age = 0, b.travel_time = 0, b.num_child = 0, b.num_hours_week = 0, tau.y=1)}
+
+parameters <- c("us_income.test")
+reg.jags <- jags.model(file = "us_income_cv.bug", data = jags.dat, inits = jags.inits, n.chains = 10, n.adapt=1000)
+
+update(reg.jags, n.iter=2000) 
+
+regression.sim <- coda.samples(reg.jags, variable.names=parameters, n.iter=2000)
+
+# summary(regression.sim)
+
+cv.samples <- regression.sim[[1]]
+
+test.mat <- matrix( dat = us_income_data.test$INCOME, byrow=T, nrow=2000, ncol=1000)
+
+stopifnot(dim(cv.samples) == dim(test.mat))
+```
+
+### MSE 1
+```{r}
+mean( (cv.samples - test.mat)^2 )
+```
+
+### Bias 1
+```{r}
+mean( (cv.samples -  test.mat) )
+```
+
+### Absolute Bias 1
+```{r}
+mean( abs(cv.samples - test.mat) )
+```
+
+## Model 2 (without "num_hours_week" variable)
+```{r}
+set.seed(123)
+
+jags.dat.2<- list("N"=N, "us_income"= us_income_data$INCOME, "age" = us_income_data$AGE, "travel_time" = us_income_data$TRAVEL_TIME, "num_child" = us_income_data$NUM_CHILD, "age.test" = us_income_data.test$AGE, "travel_time.test" = us_income_data.test$TRAVEL_TIME, "num_child.test" = us_income_data.test$NUM_CHILD)
+
+jags.inits.2 <- function() {list (b.age = 0, b.travel_time = 0, b.num_child = 0, tau.y=1)}
+
+parameters.2 <- c("us_income.test")
+reg.jags.2 <- jags.model(file = "us_income_cv_2.bug", data = jags.dat.2, inits = jags.inits.2, n.chains = 10, n.adapt=1000)
+
+update(reg.jags.2, n.iter=2000) 
+
+regression.sim.2 <- coda.samples(reg.jags.2, variable.names = parameters.2, n.iter=2000)
+
+# summary(regression.sim.2)
+
+cv.samples.2 <- regression.sim.2[[1]]
+
+test.mat.2 <- matrix( dat = us_income_data.test$INCOME, byrow=T, nrow=2000, ncol=1000)
+```
+
+### MSE 2
+```{r}
+mean( (cv.samples.2 - test.mat.2)^2 )
+```
+
+### Bias 2
+```{r}
+mean( (cv.samples.2 -  test.mat.2) )
+```
+
+### Absolute Bias 2
+```{r}
+mean( abs(cv.samples.2 - test.mat.2) )
+```
+
+### Penalized Deviance 1,2 
+```{r}
+set.seed(12334)
+dic.1 <- dic.samples(model=reg.jags, n.iter=1000, type="pD")
+dic.2 <- dic.samples(model=reg.jags.2, n.iter=1000, type="pD")
+
+cat("Model 1\n")
+dic.1
+cat("\n")
+cat("Model 2\n")
+dic.2
+cat("\n")
+
+cat("Diff of Model 1 & 2\n")
+diffdic(dic.1, dic.2)
+```
+
+## Bayesian Stochastic Variable Selection
+```{r}
+set.seed(123222)
+
+jags.dat.3<- list("N"=N, "us_income"= us_income_data$INCOME, "age" = us_income_data$AGE, "travel_time" = us_income_data$TRAVEL_TIME, "num_child" = us_income_data$NUM_CHILD, "num_hours_week" = us_income_data$NUM_HOURS_WEEK)
+
+jags.inits.3 <- function() {list (b.age = 0, b.travel_time = 0, b.num_child = 0, b.num_hours_week = 0, tau.y=1)}
+
+parameters.3 <- c("b.age", "b.travel_time", "b.num_child", "b.num_hours_week", "tau.y", "m")
+reg.jags.3 <- jags.model(file = "us_income_svs.bug", data = jags.dat.3, inits = jags.inits.3, n.chains = 10, n.adapt=1000)
+
+update(reg.jags.3, n.iter = 2000) 
+
+regression.sim.3 <- coda.samples(reg.jags.3, variable.names = parameters.3, n.iter=2000)
+
+summary(regression.sim.3)
+```
+
+## Bayesian Lasso
+```{r}
+set.seed(34343)
+
+jags.dat.4<- list("N"=N, "us_income"= us_income_data$INCOME, "age" = us_income_data$AGE, "travel_time" = us_income_data$TRAVEL_TIME, "num_child" = us_income_data$NUM_CHILD, "num_hours_week" = us_income_data$NUM_HOURS_WEEK)
+
+jags.inits.4 <- function() {list (b.age = 0, b.travel_time = 0, b.num_child = 0, b.num_hours_week = 0, tau.y=1, tau.las=1)}
+
+parameters.4 <- c("b.age", "b.travel_time", "b.num_child", "b.num_hours_week", "tau.y", "tau.las")
+reg.jags.4 <- jags.model(file = "us_income_lasso.bug", data = jags.dat.4, inits = jags.inits.4, n.chains = 10, n.adapt=1000)
+
+update(reg.jags.4, n.iter = 2000) 
+
+regression.sim.4 <- coda.samples(reg.jags.4, variable.names = parameters.4, n.iter=2000)
+
+summary(regression.sim.4)
+```
+
+### denplots/diagnostics
+```{r}
+library(mcmcplots)
+
+mcmcplot(regression.sim.4)
+
+denplot(regression.sim.4)
+```
+
+## Bayes factor model comparison in a linear regression
+```{r}
+library(BayesFactor)
+bf = regressionBF(INCOME ~ ., data = us_income_data)
+bf
+```
+
+### Compare the 5 best models to the best
+```{r}
+bf2 = head(bf) / max(bf)
+bf2
+```
+
+### Plots Best 5
+```{r}
+plot(bf2)
+```
+
+### Comparing the most complex model to all models that can be formed by removing a single covariate
+```{r}
+bf = regressionBF(INCOME ~ ., data = us_income_data, whichModels = "top", progress = F)
+plot(bf)
+```
+
+### Comparing the intercept-only model to all models that can be formed by added a covariate
+```{r}
+bf = regressionBF(INCOME ~ ., data = us_income_data, whichModels = "bottom", progress = F)
+plot(bf)
+```
+
+
+
+
+
+
+
+
+

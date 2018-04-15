@@ -1,0 +1,22 @@
+model {
+
+  for(i in 1:N){
+
+    us_income[i] ~ dnorm ( mu.y[i], tau.y )
+    mu.y[i] <- a + b.age * age[i] + b.travel_time * travel_time[i] + b.num_child * num_child[i] + b.num_hours_week * num_hours_week[i] 
+
+  }
+
+        a ~ dnorm(0, 0.001)
+
+        tau.y ~ dgamma(0.01, 0.01)  
+
+  	b.age ~ ddexp(0, tau.las)
+	b.travel_time ~ ddexp(0, tau.las)
+	b.num_child ~ ddexp(0, tau.las)
+	b.num_hours_week ~ ddexp(0, tau.las)
+        
+        tau.las ~ dgamma(0.001, 0.001)  
+    
+
+}
