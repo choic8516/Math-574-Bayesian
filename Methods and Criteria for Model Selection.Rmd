@@ -1,7 +1,7 @@
 ---
 title: "Bayesian Model Selection/Comparison"
 output: html_notebook
-author: Chul Ho Choi
+author: Chul Ho Choi, Pingchuan Ma
 ---
 
 # Bayesian model comparison
@@ -63,6 +63,7 @@ mean( (cv.samples -  test.mat) )
 ```{r}
 mean( abs(cv.samples - test.mat) )
 ```
+
 
 ## Model 2 (without "num_hours_week" variable)
 ```{r}
@@ -193,11 +194,55 @@ bf = regressionBF(INCOME ~ ., data = us_income_data, whichModels = "bottom", pro
 plot(bf)
 ```
 
+# Frequentist Approach Model Comparison
 
+## Linear Regression Model (Frequentiest Approach)
+```{r}
+library(caret)
 
+lmFit <- train(INCOME ~ ., data = us_income_data.train, method = "lm")
+summary(lmFit)
+```
 
+### MSE 1
+```{r}
+mean( (predict(lmFit, us_income_data.test) - us_income_data.test$INCOME)^2 )
+```
 
+### Bias 1
+```{r}
+mean( (predict(lmFit, us_income_data.test) - us_income_data.test$INCOME) )
+```
 
+### Absolute Bias 1
+```{r}
+mean( abs(predict(lmFit, us_income_data.test) - us_income_data.test$INCOME) )
+```
+
+## Best Subset Selection
+```{r}
+library(leaps)
+
+best_subset <- regsubsets(INCOME ~ .,data = us_income_data , nvmax = 5)
+best_subset_summary <-  summary(best_subset)
+best_subset_summary
+```
+
+### R^2 plot
+```{r}
+plot(best_subset_summary$adjr2 , xlab="Number of Variables ", ylab="Adjusted RSq", type="l")
+```
+
+## Lasso (Frequentist Approach)
+```{r}
+library(caret)
+set.seed(12)
+rctrl1 <- trainControl(method = "cv", number = 3, returnResamp = "all")
+test_reg_cv_model <- train(INCOME ~ ., data = us_income_data.test, method = "lasso", trControl = rctrl1,
+                           preProc = c("center", "scale"))
+test_reg_pred <- predict(test_reg_cv_model, us_income_data.train)
+test_reg_cv_model$finalModel
+```
 
 
 
