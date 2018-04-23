@@ -37,6 +37,7 @@ model.both <- step(full, scope = list(lower = model0, upper =full),direction = "
 summary(model.forward)
 summary(model.backward)
 summary(model.both)
+# Comparing with the full model
 anova(model.forward, full)
 anova(model.backward, full)
 anova(model.both, full)
